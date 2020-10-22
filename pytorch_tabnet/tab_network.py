@@ -230,6 +230,7 @@ class TabNetNoEmbeddings(torch.nn.Module):
 class TabNet(torch.nn.Module):
     def __init__(self, input_dim, output_dim, n_d=8, n_a=8,
                  n_steps=3, gamma=1.3, cat_idxs=[], cat_dims=[], cat_emb_dim=1,
+                 nonfinite_treatment=None,
                  n_independent=2, n_shared=2, epsilon=1e-15,
                  virtual_batch_size=128, momentum=0.02, device_name='auto',
                  mask_type="sparsemax"):
@@ -259,6 +260,12 @@ class TabNet(torch.nn.Module):
             Size of the embedding of categorical features
             if int, all categorical features will have same embedding size
             if list of int, every corresponding feature will have specific size
+        nonfinite_treatment : None or 'dimension' or float or list of same
+            Either a global or per-feature (list) configuration for how to embed non-finite inputs.
+            If None, no special treatment applied. If a number, non-finite values will be embedded
+            to that number. If 'dimension', non-finite values will be filled with zeros and an
+            additional column will be added to each feature's embedding; 0 where the original value
+            is present and 1 where a non-finite entry has been masked.
         n_independent : int
             Number of independent GLU layer in each GLU block (default 2)
         n_shared : int
@@ -295,7 +302,8 @@ class TabNet(torch.nn.Module):
             raise ValueError("n_shared and n_independant can't be both zero.")
 
         self.virtual_batch_size = virtual_batch_size
-        self.embedder = EmbeddingGenerator(input_dim, cat_dims, cat_idxs, cat_emb_dim)
+        self.embedder = EmbeddingGenerator(input_dim, cat_dims, cat_idxs, cat_emb_dim,
+                                           nonfinite_treatment=nonfinite_treatment)
         self.post_embed_dim = self.embedder.post_embed_dim
         self.feature_embed_widths = self.embedder.feature_embed_widths
         self.tabnet = TabNetNoEmbeddings(self.post_embed_dim, output_dim,
@@ -492,7 +500,7 @@ class EmbeddingGenerator(torch.nn.Module):
         Classical embeddings generator
     """
 
-    def __init__(self, input_dim, cat_dims, cat_idxs, cat_emb_dim):
+    def __init__(self, input_dim, cat_dims, cat_idxs, cat_emb_dim, nonfinite_treatment=None):
         """ This is an embedding module for an entier set of features
 
         Parameters
@@ -507,9 +515,45 @@ class EmbeddingGenerator(torch.nn.Module):
         cat_emb_dim : int or list of int
             Embedding dimension for each categorical features
             If int, the same embdeding dimension will be used for all categorical features
+        nonfinite_treatment : None or 'dimension' or float or list of same
+            Either a global or per-feature (list) configuration for how to embed non-finite inputs.
+            If None, no special treatment applied. If a number, non-finite values will be embedded
+            to that number. If 'dimension', non-finite values will be filled with zeros and an
+            additional column will be added to each feature's embedding; 0 where the original value
+            is present and 1 where a non-finite entry has been masked.
         """
         super(EmbeddingGenerator, self).__init__()
-        if cat_dims == [] or cat_idxs == []:
+        # Map global nonfinite_treatment specs to local:
+        if isinstance(nonfinite_treatment, str):
+            if nonfinite_treatment != "dimension":
+                raise ValueError(
+                    f"Unrecognised nonfinite_treatment string '{nonfinite_treatment}'"
+                )
+            nonfinite_treatment = ["dimension"] * input_dim
+        elif not hasattr(nonfinite_treatment, "__len__"):
+            # Looks like a scalar to be applied across all dimensions:
+            nonfinite_treatment = [nonfinite_treatment] * input_dim
+        elif nonfinite_treatment is not None:
+            if len(nonfinite_treatment) == 0:
+                nonfinite_treatment = None  # Zero-length spec array => same as None
+            elif len(nonfinite_treatment) != input_dim:
+                raise ValueError(
+                    "nonfinite_treatment, if provided as a per-feature list, must have same len "
+                    f"as input_dim ({input_dim}). Got {len(nonfinite_treatment)}."
+                )
+            elif len(filter(lambda t: t is not None, nonfinite_treatment)) == 0:
+                nonfinite_treatment = None  # Array full of None => same as None
+        self.nonfinite_treatment = nonfinite_treatment
+        self._feature_has_nonfinite_flag = (
+            ([False] * input_dim) if self.nonfinite_treatment is None
+            else [t == "dimension" for t in self.nonfinite_treatment]
+        )
+        self._feature_nonfinite_mask = (
+            ([None] * input_dim) if self.nonfinite_treatment is None
+            else [0 if t == "dimension" else t for t in self.nonfinite_treatment]
+        )
+
+        if (cat_dims == [] or cat_idxs == []) and nonfinite_treatment is None:
             self.skip_embedding = True
             self.feature_embed_widths = None
             self.post_embed_dim = input_dim
@@ -526,7 +570,11 @@ class EmbeddingGenerator(torch.nn.Module):
             msg = """ cat_emb_dim and cat_dims must be lists of same length, got {len(self.cat_emb_dims)}
                       and {len(cat_dims)}"""
             raise ValueError(msg)
-        self.post_embed_dim = int(input_dim + np.sum(self.cat_emb_dims) - len(self.cat_emb_dims))
+        self.post_embed_dim = int(
+            input_dim
+            + np.sum(self.cat_emb_dims) - len(self.cat_emb_dims)
+            + np.sum(self._feature_has_nonfinite_flag)
+        )
 
         self.embeddings = torch.nn.ModuleList()
 
@@ -543,9 +591,10 @@ class EmbeddingGenerator(torch.nn.Module):
         self.continuous_idx[cat_idxs] = 0
 
         # Record final embedded widths of each feature
-        self.feature_embed_widths = input_dim * [1]
+        self.feature_embed_widths = [has_flag + 1 for has_flag in self._feature_has_nonfinite_flag]
         for ix, dim in zip(cat_idxs, self.cat_emb_dims):
-            self.feature_embed_widths[ix] = dim
+            self.feature_embed_widths[ix] += dim - 1
+        print(f"feature_embed_widths = {self.feature_embed_widths}")
 
     def forward(self, x):
         """
@@ -560,12 +609,27 @@ class EmbeddingGenerator(torch.nn.Module):
         cols = []
         cat_feat_counter = 0
         for feat_init_idx, is_continuous in enumerate(self.continuous_idx):
+            feat_nonfinite_mask = self._feature_nonfinite_mask[feat_init_idx]
+            feat_nonfinite_flag = self._feature_has_nonfinite_flag[feat_init_idx]
             # Enumerate through continuous idx boolean mask to apply embeddings
             if is_continuous:
-                cols.append(x[:, feat_init_idx].float().view(-1, 1))
+                feature = x[:, feat_init_idx].float().view(-1, 1)
+                if feat_nonfinite_mask is not None:
+                    nonfinites = ~torch.isfinite(feature)
+                    feature[nonfinites] = feat_nonfinite_mask
+                cols.append(feature)
+                if (feat_nonfinite_flag):
+                    cols.append(nonfinites.type(x.type()))
             else:
-                cols.append(self.embeddings[cat_feat_counter](x[:, feat_init_idx].long()))
+                x_feat = x[:, feat_init_idx]
+                feature = self.embeddings[cat_feat_counter](x_feat.long())
                 cat_feat_counter += 1
+                if feat_nonfinite_mask is not None:
+                    nonfinites = ~torch.isfinite(x_feat)
+                    feature[nonfinites] = feat_nonfinite_mask
+                cols.append(feature)
+                if (feat_nonfinite_flag):
+                    cols.append(nonfinites.type(x.type()).view(-1, 1))
         # concat
         post_embeddings = torch.cat(cols, dim=1)
         return post_embeddings

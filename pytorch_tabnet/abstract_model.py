@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Union
 import torch
 from torch.nn.utils import clip_grad_norm_
 import numpy as np
@@ -41,6 +41,9 @@ class TabModel(BaseEstimator):
     cat_idxs: List[int] = field(default_factory=list)
     cat_dims: List[int] = field(default_factory=list)
     cat_emb_dim: int = 1
+    nonfinite_treatment: Union[
+        float, "dimension", None, List[Union[float, "dimension", None]]
+    ] = None
     n_independent: int = 2
     n_shared: int = 2
     epsilon: float = 1e-15
@@ -144,13 +147,15 @@ class TabModel(BaseEstimator):
         else:
             self.loss_fn = loss_fn
 
-        check_nans(X_train)
-        check_nans(y_train)
+        if self.nonfinite_treatment is None:  # TODO: Support partial checks?
+            check_nans(X_train)
+            check_nans(y_train)
         self.update_fit_params(
             X_train, y_train, eval_set, weights,
         )
 
         # Validate and reformat eval set depending on training data
+        # TODO: Support NaNs in evaluation set
         eval_names, eval_set = validate_eval_set(eval_set, eval_name, X_train, y_train)
 
         train_dataloader, valid_dataloaders = self._construct_loaders(
@@ -468,6 +473,7 @@ class TabModel(BaseEstimator):
             cat_idxs=self.cat_idxs,
             cat_dims=self.cat_dims,
             cat_emb_dim=self.cat_emb_dim,
+            nonfinite_treatment=self.nonfinite_treatment,
             n_independent=self.n_independent,
             n_shared=self.n_shared,
             epsilon=self.epsilon,
