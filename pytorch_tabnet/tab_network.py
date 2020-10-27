@@ -253,6 +253,7 @@ class TabNet(torch.nn.Module):
         self.epsilon = epsilon
         self.n_independent = n_independent
         self.n_shared = n_shared
+        self.virtual_batch_size = virtual_batch_size
         self.mask_type = mask_type
 
         if self.n_steps <= 0:
@@ -260,8 +261,9 @@ class TabNet(torch.nn.Module):
         if self.n_independent == 0 and self.n_shared == 0:
             raise ValueError("n_shared and n_independant can't be both zero.")
 
+        self.embedder = EmbeddingGenerator(input_dim, cat_dims, cat_idxs, cat_emb_dim)
         # creates embedding groups
-        dict_emb = {idx: dim for idx, dim in zip(cat_idxs, self.cat_emb_dims)}
+        dict_emb = {idx: dim for idx, dim in zip(cat_idxs, self.embedder.cat_emb_dims)}
         embedding_groups = []
         for i in range(input_dim):
             emb_size = dict_emb.get(i, None)
@@ -270,8 +272,6 @@ class TabNet(torch.nn.Module):
             else:
                 embedding_groups.append(i)
 
-        self.virtual_batch_size = virtual_batch_size
-        self.embedder = EmbeddingGenerator(input_dim, cat_dims, cat_idxs, cat_emb_dim)
         self.post_embed_dim = self.embedder.post_embed_dim
         self.tabnet = TabNetNoEmbeddings(self.post_embed_dim, output_dim, n_d, n_a, n_steps,
                                          gamma, n_independent, n_shared, epsilon,
