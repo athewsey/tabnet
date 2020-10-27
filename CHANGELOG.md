@@ -1,4 +1,79 @@
 
+## [2.0.1](https://github.com/dreamquark-ai/tabnet/compare/v2.0.0...v2.0.1) (2020-10-15)
+
+
+### Bug Fixes
+
+* add check for evalset dim ([ba09980](https://github.com/dreamquark-ai/tabnet/commit/ba09980029093ddfee3f10414c366893ea0e4005))
+* pin memory available for training only ([28346c2](https://github.com/dreamquark-ai/tabnet/commit/28346c2259cabbed79e83963c4009eac3ae38f9e))
+* specify device ([46a301f](https://github.com/dreamquark-ai/tabnet/commit/46a301fc5ae702f56f2f54ccabf61762da26588d))
+* torch.load map_location in Py36 fallback ([63cb8c4](https://github.com/dreamquark-ai/tabnet/commit/63cb8c43652f854b0e11a6c8f784d4b5f8f8748b))
+
+
+
+# [2.0.0](https://github.com/dreamquark-ai/tabnet/compare/v1.2.0...v2.0.0) (2020-10-13)
+
+
+### Bug Fixes
+
+* 1000 lines only when env=CI ([c557349](https://github.com/dreamquark-ai/tabnet/commit/c5573496e1262bc765eb04361ae4a3185844a866))
+* add map_location to torch load ([c2b560e](https://github.com/dreamquark-ai/tabnet/commit/c2b560e72bc01e34e8dba7578f239e37bbd6782c))
+* load_model fallback to BytesIO for Py3.6 ([55c09e5](https://github.com/dreamquark-ai/tabnet/commit/55c09e5c47e6ec58276c301a5af7afa2dc529bc1))
+
+
+### Features
+
+* add check nan and inf ([d871406](https://github.com/dreamquark-ai/tabnet/commit/d87140623f2118e494874549752987e89be235f3))
+* add easy schedulers ([0ae114f](https://github.com/dreamquark-ai/tabnet/commit/0ae114ff59900537cd3c48dc9d44669f52b9141e))
+* adding callbacks and metrics ([1e0daec](https://github.com/dreamquark-ai/tabnet/commit/1e0daec01a6a95f39699028c5fad213b2d8f3d3e))
+* refacto models with metrics and callbacks ([cc57d62](https://github.com/dreamquark-ai/tabnet/commit/cc57d62698ef629d63dcc8878d4d48f231f3cd77))
+* speedups ([5a01359](https://github.com/dreamquark-ai/tabnet/commit/5a013596da597263aaf1b9f385732fc2442dda96))
+* TabNetMultiTaskClassifier ([5764a43](https://github.com/dreamquark-ai/tabnet/commit/5764a43e72cb643fff806f70ed9dfa2e48433f50))
+* update readme and notebooks ([9cb38d2](https://github.com/dreamquark-ai/tabnet/commit/9cb38d2d3b636ef5f0a99a9ac4171faeea141213))
+
+
+
+# [1.2.0](https://github.com/dreamquark-ai/tabnet/compare/v1.1.0...v1.2.0) (2020-07-01)
+
+
+### Bug Fixes
+
+* verbosity with schedulers ([d6fbf90](https://github.com/dreamquark-ai/tabnet/commit/d6fbf9012ad2a60f0ac4e2b801d258a16250d74c))
+
+
+### Features
+
+* add entmax as parameter ([96c8a74](https://github.com/dreamquark-ai/tabnet/commit/96c8a74d44abfc7318f06fdd56f7d77ec1974e96))
+* allow other optimizer parameters ([16d92d5](https://github.com/dreamquark-ai/tabnet/commit/16d92d5513de36892f859935d36c3bac398ed035))
+* allow weights sample for regression ([d40b02f](https://github.com/dreamquark-ai/tabnet/commit/d40b02f5e1cb8ca8c28c398cb0e26cba5cec3445))
+* save and load tabnet models ([9d2d8ae](https://github.com/dreamquark-ai/tabnet/commit/9d2d8ae8c724901eb062e4340dad06c364c88fa5))
+* save params and easy loading ([6e22393](https://github.com/dreamquark-ai/tabnet/commit/6e22393b9d1206ba1aca8af2645c5de6fe24a6db))
+
+
+
+# [1.1.0](https://github.com/dreamquark-ai/tabnet/compare/v1.0.6...v1.1.0) (2020-06-02)
+
+
+### Bug Fixes
+
+* allow zero layer ([e3b5a04](https://github.com/dreamquark-ai/tabnet/commit/e3b5a04edb1aff25683ce5457f9b4fd57b4c1bf6))
+* sort by cat_idx into embedding generator ([9ab3ad5](https://github.com/dreamquark-ai/tabnet/commit/9ab3ad542941ad3ff535f974ad93dc2b950d4559))
+* update forest_example notebook ([8092324](https://github.com/dreamquark-ai/tabnet/commit/809232452d5d860036b8e867dfa17701bb2e1c88))
+
+
+### Features
+
+* add multi output regression ([ffd7c28](https://github.com/dreamquark-ai/tabnet/commit/ffd7c284682f03c1b5a6ce25f910f2d65b78029f))
+* add num_workers and drop_last to fit parameters ([313d074](https://github.com/dreamquark-ai/tabnet/commit/313d07481361c87c39df470ee23850757c8b1c85))
+* remove mask computations from forward ([44d1a47](https://github.com/dreamquark-ai/tabnet/commit/44d1a47f34c0b9d636279ef3897a02e489471738))
+* speed boost and code simplification for GBN ([1642909](https://github.com/dreamquark-ai/tabnet/commit/1642909bd305d40f828be6e0c0484c8f72fd213a))
+
+
+
+## [1.0.6](https://github.com/dreamquark-ai/tabnet/compare/v1.0.5...v1.0.6) (2020-04-20)
+
+
+
 ## [1.0.5](https://github.com/dreamquark-ai/tabnet/compare/v1.0.4...v1.0.5) (2020-03-13)
 
 
